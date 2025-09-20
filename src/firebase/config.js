@@ -3,14 +3,14 @@ import { getFirestore } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
-    apiKey: "AIzaSyCnfC_VWgjBq6__LI97aoVo2krbHjDoqR4",
-    authDomain: "healthcare-ai-system.firebaseapp.com",
-    projectId: "healthcare-ai-system",
-    storageBucket: "healthcare-ai-system.firebasestorage.app",
-    messagingSenderId: "359529945507",
-    appId: "1:359529945507:web:bff92f319ce715659de216",
-    measurementId: "G-EY76YYYBG6"
-  };
+      apiKey: "AIzaSyBiubQU77WFDqK4hHFClinmGnDNvYThTUE",
+      authDomain: "healthcare-ai-system-5b2f9.firebaseapp.com",
+      projectId: "healthcare-ai-system-5b2f9",
+      storageBucket: "healthcare-ai-system-5b2f9.firebasestorage.app",
+      messagingSenderId: "897420270319",
+      appId: "1:897420270319:web:5557d8baabbc014ed7991a",
+      measurementId: "G-B1S0XJCGXB"
+    };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
