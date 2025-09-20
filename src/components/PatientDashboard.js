@@ -1,16 +1,31 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import patientService from '../services/patientService';
+import PatientFormModal from './PatientFormModal';
 import '../styles/healthcare.css';
+import SubtleEnhancedHeader from './SubtleEnhancedHeader';
 
-const PatientDashboard = () => {
+
+const PatientDashboard = ({ onPatientCountChange }) => {
+    const navigate = useNavigate();
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAddPatientForm, setShowAddPatientForm] = useState(false);
 
+  
   useEffect(() => {
     loadPatients();
   }, []);
+
+  useEffect(() => {
+    if (onPatientCountChange) {
+      onPatientCountChange(patients.length);
+    }
+  }, [patients.length, onPatientCountChange]);
+
+  
 
   const loadPatients = async () => {
     try {
@@ -26,9 +41,29 @@ const PatientDashboard = () => {
     }
   };
 
+  // Handle adding new patient from modal form
+  const handlePatientAdded = async (newPatientData) => {
+    try {
+      // Save to Firebase through patientService
+      const savedPatient = await patientService.createPatient(newPatientData);
+      
+      // Add to local state for immediate UI update
+      setPatients(prev => [savedPatient, ...prev]);
+      
+      // Close the modal
+      setShowAddPatientForm(false);
+      
+      console.log('Patient registered successfully:', savedPatient.id);
+    } catch (err) {
+      console.error('Error saving patient:', err);
+      // The modal will handle showing the error
+      throw err;
+    }
+  };
+
   const filteredPatients = patients.filter(patient => {
-    const fullName = patientService.formatName(patient.name);
-    return fullName.toLowerCase().includes(searchTerm.toLowerCase());
+    const cleanName = patientService.getCleanName(patient.name);
+    return cleanName.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   if (loading) {
@@ -55,24 +90,38 @@ const PatientDashboard = () => {
 
   return (
     <div className="dashboard-container">
-      <div className="dashboard-header">
-        <h2 className="dashboard-title">Patient Registry</h2>
-        <p className="dashboard-subtitle">
-          Manage and view patient records from your healthcare database
-        </p>
-      </div>
+      <SubtleEnhancedHeader 
+  searchTerm={searchTerm}
+  onSearchChange={setSearchTerm}
+  patientCount={filteredPatients.length}
+/>
 
-      <div className="search-section">
-        <input
-          type="text"
-          placeholder="Search patients by name..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="search-input"
-        />
-        <p style={{ margin: '12px 0 0 0', fontSize: '0.875rem', color: 'var(--gray-600)' }}>
-          Showing {filteredPatients.length} of {patients.length} patients
-        </p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '10px' }}>
+        <div>
+          {/* Optional: Add filter buttons here */}
+        </div>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {/* <button 
+            onClick={() => setShowAddPatientForm(true)}
+            className="view-button"
+            style={{ backgroundColor: 'var(--success-green)' }}
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Register Patient
+          </button> */}
+          <button 
+            onClick={() => navigate('/patients/new')}
+            className="view-button"
+            style={{ backgroundColor: 'var(--primary-blue)' }}
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Add New Patient 
+          </button>
+        </div>
       </div>
 
       {filteredPatients.length === 0 && searchTerm ? (
@@ -82,21 +131,30 @@ const PatientDashboard = () => {
           <p>Try adjusting your search terms</p>
         </div>
       ) : (
-        <div className="patients-grid">
-          {filteredPatients.map(patient => (
-            <PatientCard key={patient.id} patient={patient} />
-          ))}
+        <div style={{padding:'0px 20px 0px 20px'}}>
+          <div className="patients-grid">
+            {filteredPatients.map(patient => (
+              <PatientCard key={patient.id} patient={patient} navigate={navigate} />
+            ))}
+          </div>
         </div>
       )}
+
+      {/* Patient Registration Modal */}
+      <PatientFormModal 
+        isOpen={showAddPatientForm}
+        onClose={() => setShowAddPatientForm(false)}
+        onPatientAdded={handlePatientAdded}
+      />
     </div>
   );
 };
 
-const PatientCard = ({ patient }) => {
-  const fullName = patientService.formatName(patient.name);
+const PatientCard = ({ patient, navigate }) => {
+    const fullName = patientService.formatName(patient.name);
+    const cleanName = fullName.replace(/\d+/g, '').replace(/\s+/g, ' ').trim();  // Clean the name by removing numbers
   const age = patientService.calculateAge(patient.birthDate);
   const phone = patient.telecom?.find(t => t.system === 'phone')?.value || 'No phone listed';
-  const email = patient.telecom?.find(t => t.system === 'email')?.value || 'No email';
 
   const getInitials = (name) => {
     return name.split(' ').map(n => n.charAt(0)).join('').slice(0, 2).toUpperCase();
@@ -107,17 +165,22 @@ const PatientCard = ({ patient }) => {
     return `${address.city || ''}, ${address.state || ''}`.replace(/^,\s*|,\s*$/, '') || 'Location not specified';
   };
 
+  const handleViewDetails = () => {
+    navigate(`/patients/${patient.id}`);
+  };
+
   return (
     <div className="patient-card">
       <div className="patient-header">
         <div className="patient-info">
-          <h3 className="patient-name">{fullName}</h3>
+          <h3 className="patient-name">{cleanName}
+</h3>
           <p className="patient-demographics">
             {age} years old • {patient.gender?.charAt(0).toUpperCase() + patient.gender?.slice(1) || 'Gender not specified'}
           </p>
         </div>
         <div className="patient-avatar">
-          {getInitials(fullName)}
+          {getInitials(cleanName)}
         </div>
       </div>
 
@@ -154,7 +217,7 @@ const PatientCard = ({ patient }) => {
 
       <div className="patient-footer">
         <span className="patient-id">ID: {patient.id.slice(0, 12)}...</span>
-        <button className="view-button">
+        <button className="view-button" onClick={handleViewDetails}>
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
