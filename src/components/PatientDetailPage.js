@@ -5,6 +5,11 @@ import '../styles/healthcare.css';
 import { AddEncounterModal, AddMedicationModal, AddConditionModal } from './AddMedicalRecordsModals';
 import AIMedicalSummary from './AIMedicalSummary';
 import FloatingPatientChatbot from './FloatingPatientChatbot';
+import PatientSymptomAssessment from './PatientSymptomAssessment';
+import NewIssueAnalyzer from './NewIssueAnalyzer';
+import MedicalImageAnalyzer from './MedicalImageAnalyzer';
+
+
 
 
 const PatientDetailPage = () => {
@@ -278,6 +283,7 @@ const age = patientService.calculateAge(patient.birthDate);
             </div>
           </div>
         </div>
+        <PatientSymptomAssessment patient={patient} />
 
         {/* Quick Actions */}
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
@@ -352,6 +358,16 @@ const age = patientService.calculateAge(patient.birthDate);
         observations={observations}
         procedures={procedures}
       />
+      <MedicalImageAnalyzer patient={patient} />
+
+        <NewIssueAnalyzer
+    patient={patient}
+    encounters={encounters}
+    conditions={conditions}
+    medications={medications}
+    observations={observations}
+    procedures={procedures}
+  />
 
 <FloatingPatientChatbot 
         patient={patient}
