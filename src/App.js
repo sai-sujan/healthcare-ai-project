@@ -4,11 +4,13 @@ import PatientDashboard from './components/PatientDashboard';
 import PatientDetailPage from './components/PatientDetailPage';
 import AddPatientForm from './components/AddPatientForm';
 import EditPatientPage from "./components/EditPatientPage";
+import EnhancedPatientRegistration from './components/EnhancedPatientRegistration';
 import patientService from './services/patientService';
 import './styles/healthcare.css';
 
 function App() {
   const [patientCount, setPatientCount] = useState(0);
+  const [showEnhancedRegistration, setShowEnhancedRegistration] = useState(false);
 
   useEffect(() => {
     loadPatientCount();
@@ -22,6 +24,90 @@ function App() {
       console.error('Error loading patient count:', error);
       setPatientCount(0);
     }
+  };
+
+  const handleEnhancedRegistrationSubmit = async (patientData) => {
+    try {
+      // Format patient data for Firebase
+      const formattedPatient = {
+        // FHIR-compliant structure
+        resourceType: 'Patient',
+        active: true,
+        
+        // Name
+        name: [{
+          given: [patientData.firstName],
+          family: patientData.lastName,
+          text: `${patientData.firstName} ${patientData.lastName}`
+        }],
+        
+        // Birth date and gender
+        birthDate: patientData.dateOfBirth,
+        gender: patientData.gender,
+        
+        // Contact information
+        telecom: [
+          { system: 'email', value: patientData.email, use: 'home' },
+          { system: 'phone', value: patientData.phone, use: 'mobile' }
+        ],
+        
+        // Address
+        address: patientData.street || patientData.city ? [{
+          line: patientData.street ? [patientData.street] : [],
+          city: patientData.city || '',
+          state: patientData.state || '',
+          postalCode: patientData.zipCode || '',
+          country: 'USA'
+        }] : [],
+        
+        // Medical information
+        bloodType: patientData.bloodType || null,
+        
+        // Extension fields for additional data
+        extension: [
+          {
+            url: 'http://healthai.com/fhir/StructureDefinition/allergies',
+            valueString: patientData.allergies || ''
+          },
+          {
+            url: 'http://healthai.com/fhir/StructureDefinition/current-medications',
+            valueString: patientData.medications || ''
+          }
+        ],
+        
+        // Symptom assessment data (custom fields)
+        hasSymptomAssessment: patientData.hasSymptomAssessment || false,
+        initialSymptoms: patientData.symptoms || [],
+        symptomAdditionalInfo: patientData.additionalInfo || '',
+        aiSymptomAnalysis: patientData.aiAnalysis || null,
+        
+        // Metadata
+        registrationDate: patientData.registrationDate
+      };
+  
+      // FIXED: Use createPatient instead of addPatient
+      await patientService.createPatient(formattedPatient);
+      
+      console.log('Patient registered successfully with symptom assessment!');
+      
+      // Reload patient count
+      await loadPatientCount();
+      
+      // Close the enhanced registration
+      setShowEnhancedRegistration(false);
+      
+      // Show success message
+      alert('Patient registered successfully! ' + 
+            (patientData.hasSymptomAssessment ? 'Symptom assessment has been recorded.' : ''));
+      
+    } catch (error) {
+      console.error('Error registering patient:', error);
+      alert('Failed to register patient. Please try again.\n\nError: ' + error.message);
+    }
+  };
+
+  const handleEnhancedRegistrationCancel = () => {
+    setShowEnhancedRegistration(false);
   };
 
   return (
@@ -49,9 +135,84 @@ function App() {
                 <span className="header-stat-number">Active</span>
                 <span className="header-stat-label">System Status</span>
               </div>
+              
+              {/* New Patient Registration Button */}
+              {!showEnhancedRegistration && (
+                <button
+                  onClick={() => setShowEnhancedRegistration(true)}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#8b5cf6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                    transition: 'all 0.3s ease'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#7c3aed'}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#8b5cf6'}
+                >
+                  <span style={{ fontSize: '18px' }}>+</span>
+                  Register with Symptom Check
+                </button>
+              )}
             </div>
           </div>
         </header>
+        
+        {/* Enhanced Registration Modal/Overlay */}
+        {showEnhancedRegistration && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            zIndex: 9999,
+            overflowY: 'auto'
+          }}>
+            <div style={{
+              position: 'relative',
+              minHeight: '100vh',
+              padding: '20px'
+            }}>
+              <button
+                onClick={handleEnhancedRegistrationCancel}
+                style={{
+                  position: 'fixed',
+                  top: '20px',
+                  right: '20px',
+                  width: '40px',
+                  height: '40px',
+                  borderRadius: '50%',
+                  backgroundColor: 'white',
+                  border: '2px solid #e2e8f0',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '20px',
+                  color: '#64748b',
+                  zIndex: 10000,
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                }}
+              >
+                ×
+              </button>
+              <EnhancedPatientRegistration
+                onSubmit={handleEnhancedRegistrationSubmit}
+                onCancel={handleEnhancedRegistrationCancel}
+              />
+            </div>
+          </div>
+        )}
         
         {/* Main Application Routes */}
         <main>

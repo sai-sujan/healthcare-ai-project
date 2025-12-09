@@ -5,9 +5,10 @@ const AIMedicalSummary = ({ patient, encounters, conditions, medications, observ
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const GEMINI_API_KEY = 'AIzaSyBzk1KVqepBXe0lgQOsjLDM81j0FGAUvR4';
-  const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-
+  // Get API key from environment variable (more secure)
+  const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY || 'AIzaSyDSTRJE5cwbmv6Jfe231ktNIpb9AvW12LI';
+  // Use Gemini 2.0 Flash - Latest and fastest free model!
+  const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
   // Function to get top 5 records from each category
   const getTopRecords = (data, dateField, limit = 5) => {
     if (!data || !Array.isArray(data)) return [];
@@ -149,12 +150,38 @@ const AIMedicalSummary = ({ patient, encounters, conditions, medications, observ
             parts: [{
               text: prompt
             }]
-          }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 2048,
+            candidateCount: 1
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
         })
       });
 
       if (!response.ok) {
-        throw new Error(`Gemini API error: ${response.status} ${response.statusText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Gemini API error: ${response.status} - ${errorData.error?.message || response.statusText}`);
       }
 
       const data = await response.json();

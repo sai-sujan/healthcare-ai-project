@@ -8,9 +8,8 @@ const FloatingPatientChatbot = ({ patient, encounters, conditions, medications, 
   const [recordLimit, setRecordLimit] = useState(5);
   const messagesEndRef = useRef(null);
 
-  const GEMINI_API_KEY = 'AIzaSyBzk1KVqepBXe0lgQOsjLDM81j0FGAUvR4';
-  const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
-
+  const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY || 'AIzaSyDSTRJE5cwbmv6Jfe231ktNIpb9AvW12LI';
+  const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -57,29 +56,29 @@ Race: ${patient.race || 'Not specified'}
 Ethnicity: ${patient.ethnicity || 'Not specified'}
 
 RECENT ENCOUNTERS (Last ${recordLimit}):
-${topEncounters.map((e, i) => 
+${topEncounters.length > 0 ? topEncounters.map((e, i) => 
   `${i+1}. ${e.type || 'Medical Encounter'} on ${new Date(e.period?.start || e.createdAt).toLocaleDateString()} - ${e.reasonCode || 'General care'} (Status: ${e.status})`
-).join('\n')}
+).join('\n') : 'No encounters recorded'}
 
 MEDICAL CONDITIONS (Last ${recordLimit}):
-${topConditions.map((c, i) => 
+${topConditions.length > 0 ? topConditions.map((c, i) => 
   `${i+1}. ${c.display || 'Medical Condition'} - Status: ${c.clinicalStatus} (Since: ${c.onsetDateTime ? new Date(c.onsetDateTime).toLocaleDateString() : 'Unknown'})`
-).join('\n')}
+).join('\n') : 'No conditions recorded'}
 
 MEDICATIONS (Last ${recordLimit}):
-${topMedications.map((m, i) => 
+${topMedications.length > 0 ? topMedications.map((m, i) => 
   `${i+1}. ${m.display || 'Medication'} - ${m.dosage || 'As prescribed'} (Status: ${m.status}) - Reason: ${m.reasonCode || 'Not specified'}`
-).join('\n')}
+).join('\n') : 'No medications recorded'}
 
 LAB RESULTS/OBSERVATIONS (Last ${recordLimit}):
-${topObservations.map((o, i) => 
+${topObservations.length > 0 ? topObservations.map((o, i) => 
   `${i+1}. ${o.display || 'Observation'}: ${o.valueQuantity ? `${o.valueQuantity.value} ${o.valueQuantity.unit}` : o.valueString || 'Result pending'} on ${new Date(o.effectiveDateTime || o.createdAt).toLocaleDateString()}`
-).join('\n')}
+).join('\n') : 'No observations recorded'}
 
 PROCEDURES (Last ${recordLimit}):
-${topProcedures.map((p, i) => 
+${topProcedures.length > 0 ? topProcedures.map((p, i) => 
   `${i+1}. ${p.display || 'Procedure'} on ${new Date(p.performedDateTime || p.createdAt).toLocaleDateString()} - Status: ${p.status}`
-).join('\n')}
+).join('\n') : 'No procedures recorded'}
     `;
   };
 
@@ -107,6 +106,7 @@ IMPORTANT GUIDELINES:
 - Do not provide medical diagnoses or treatment recommendations
 - Focus on explaining patterns, timelines, and relationships in the data
 - Be professional and concise in your responses
+- Format your response clearly with bullet points or sections when appropriate
 
 USER QUESTION: ${inputMessage}
 
@@ -123,12 +123,39 @@ Please provide a helpful response based on the patient's medical data above.
             parts: [{
               text: prompt
             }]
-          }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            topK: 40,
+            topP: 0.95,
+            maxOutputTokens: 1024,
+            candidateCount: 1
+          },
+          safetySettings: [
+            {
+              category: "HARM_CATEGORY_HARASSMENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_HATE_SPEECH",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+              threshold: "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
         })
       });
 
       if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error:', errorData);
+        throw new Error(`API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
       }
 
       const data = await response.json();
@@ -140,14 +167,14 @@ Please provide a helpful response based on the patient's medical data above.
         };
         setMessages(prev => [...prev, aiResponse]);
       } else {
-        throw new Error('Invalid response format');
+        throw new Error('Invalid response format from Gemini API');
       }
 
     } catch (error) {
       console.error('Error:', error);
       const errorResponse = {
         type: 'ai',
-        content: 'Sorry, I encountered an error processing your question. Please try again.'
+        content: `Sorry, I encountered an error: ${error.message}. Please try again.`
       };
       setMessages(prev => [...prev, errorResponse]);
     } finally {
@@ -177,7 +204,7 @@ Please provide a helpful response based on the patient's medical data above.
           right: '30px',
           width: '60px',
           height: '60px',
-          backgroundColor: 'var(--primary-blue)',
+          backgroundColor: '#8b5cf6',
           borderRadius: '50%',
           display: 'flex',
           alignItems: 'center',
@@ -188,8 +215,8 @@ Please provide a helpful response based on the patient's medical data above.
           transition: 'all 0.3s ease',
           transform: isOpen ? 'scale(0.9)' : 'scale(1)',
         }}
-        onMouseOver={(e) => e.target.style.transform = 'scale(1.1)'}
-        onMouseOut={(e) => e.target.style.transform = isOpen ? 'scale(0.9)' : 'scale(1)'}
+        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+        onMouseOut={(e) => e.currentTarget.style.transform = isOpen ? 'scale(0.9)' : 'scale(1)'}
       >
         <div style={{
           color: 'white',
@@ -221,7 +248,7 @@ Please provide a helpful response based on the patient's medical data above.
           {/* Chat Header */}
           <div style={{
             padding: '16px 20px',
-            backgroundColor: 'var(--primary-blue)',
+            background: 'linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)',
             color: 'white',
             borderRadius: '16px 16px 0 0'
           }}>
@@ -231,20 +258,28 @@ Please provide a helpful response based on the patient's medical data above.
               alignItems: 'center',
               marginBottom: '8px'
             }}>
-              <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
-                Patient AI Assistant
-              </h3>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '600' }}>
+                  Patient AI Assistant
+                </h3>
+                <p style={{ margin: '2px 0 0 0', fontSize: '11px', opacity: 0.9 }}>
+                  Powered by Gemini 1.5 Flash ⚡
+                </p>
+              </div>
               <button
                 onClick={clearChat}
                 style={{
-                  background: 'var(--primary-blue)',
+                  background: 'rgba(255, 255, 255, 0.2)',
                   border: 'none',
                   color: 'white',
-                  padding: '4px 8px',
-                  borderRadius: '4px',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
                   cursor: 'pointer',
-                  fontSize: '12px'
+                  fontSize: '12px',
+                  transition: 'background 0.2s'
                 }}
+                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)'}
+                onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'}
               >
                 Clear
               </button>
@@ -256,7 +291,7 @@ Please provide a helpful response based on the patient's medical data above.
               alignItems: 'center',
               gap: '8px',
               fontSize: '12px',
-              opacity: 0.9
+              opacity: 0.95
             }}>
               <span>Consider last:</span>
               <select
@@ -264,11 +299,12 @@ Please provide a helpful response based on the patient's medical data above.
                 onChange={(e) => setRecordLimit(parseInt(e.target.value))}
                 style={{
                   background: 'rgba(255, 255, 255, 0.2)',
-                  border: 'none',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
                   color: 'white',
-                  padding: '2px 6px',
+                  padding: '4px 8px',
                   borderRadius: '4px',
-                  fontSize: '12px'
+                  fontSize: '12px',
+                  cursor: 'pointer'
                 }}
               >
                 <option value={5} style={{color: 'black'}}>5 records</option>
@@ -277,7 +313,7 @@ Please provide a helpful response based on the patient's medical data above.
                 <option value={20} style={{color: 'black'}}>20 records</option>
                 <option value={50} style={{color: 'black'}}>50 records</option>
               </select>
-              <span>from each category</span>
+              <span>per category</span>
             </div>
           </div>
 
@@ -296,8 +332,16 @@ Please provide a helpful response based on the patient's medical data above.
                 marginTop: '40px'
               }}>
                 <div style={{ fontSize: '32px', marginBottom: '8px' }}>🤖</div>
-                <p>Ask me anything about this patient's medical data!</p>
-                <p style={{ fontSize: '12px', opacity: 0.7 }}>
+                <p style={{ fontWeight: '600', marginBottom: '8px' }}>
+                  Ask me anything about this patient!
+                </p>
+                <p style={{ fontSize: '12px', opacity: 0.7, lineHeight: '1.5' }}>
+                  I can help you understand:<br/>
+                  • Medical history & conditions<br/>
+                  • Medication patterns<br/>
+                  • Lab results & trends<br/>
+                  • Recent encounters<br/>
+                  <br/>
                   Currently analyzing the last {recordLimit} records from each category.
                 </p>
               </div>
@@ -311,14 +355,15 @@ Please provide a helpful response based on the patient's medical data above.
               }}>
                 <div style={{
                   maxWidth: '80%',
-                  padding: '8px 12px',
+                  padding: '10px 14px',
                   borderRadius: '12px',
                   backgroundColor: message.type === 'user' ? '#8b5cf6' : 'white',
                   color: message.type === 'user' ? 'white' : '#374151',
                   fontSize: '14px',
-                  lineHeight: '1.4',
+                  lineHeight: '1.5',
                   border: message.type === 'ai' ? '1px solid #e2e8f0' : 'none',
-                  whiteSpace: 'pre-wrap'
+                  whiteSpace: 'pre-wrap',
+                  boxShadow: message.type === 'ai' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none'
                 }}>
                   {message.content}
                 </div>
@@ -332,12 +377,13 @@ Please provide a helpful response based on the patient's medical data above.
                 marginBottom: '12px'
               }}>
                 <div style={{
-                  padding: '8px 12px',
+                  padding: '10px 14px',
                   borderRadius: '12px',
                   backgroundColor: 'white',
                   border: '1px solid #e2e8f0',
                   fontSize: '14px',
-                  color: '#64748b'
+                  color: '#64748b',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
                 }}>
                   <div style={{
                     display: 'flex',
@@ -375,17 +421,18 @@ Please provide a helpful response based on the patient's medical data above.
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
-                placeholder="Ask about patient's conditions, medications, recent visits..."
+                placeholder="Ask about conditions, medications, lab results..."
                 disabled={loading}
                 style={{
                   flex: 1,
-                  padding: '8px 12px',
+                  padding: '10px 12px',
                   border: '1px solid #e2e8f0',
                   borderRadius: '8px',
                   fontSize: '14px',
                   resize: 'none',
                   maxHeight: '80px',
-                  minHeight: '36px'
+                  minHeight: '40px',
+                  fontFamily: 'inherit'
                 }}
                 rows={1}
               />
@@ -393,14 +440,26 @@ Please provide a helpful response based on the patient's medical data above.
                 onClick={sendMessage}
                 disabled={loading || !inputMessage.trim()}
                 style={{
-                  padding: '8px 12px',
+                  padding: '10px 16px',
                   backgroundColor: loading || !inputMessage.trim() ? '#9ca3af' : '#8b5cf6',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
                   cursor: loading || !inputMessage.trim() ? 'not-allowed' : 'pointer',
                   fontSize: '14px',
-                  minWidth: '60px'
+                  fontWeight: '600',
+                  minWidth: '60px',
+                  transition: 'background 0.2s'
+                }}
+                onMouseOver={(e) => {
+                  if (!loading && inputMessage.trim()) {
+                    e.currentTarget.style.backgroundColor = '#7c3aed';
+                  }
+                }}
+                onMouseOut={(e) => {
+                  if (!loading && inputMessage.trim()) {
+                    e.currentTarget.style.backgroundColor = '#8b5cf6';
+                  }
                 }}
               >
                 Send
