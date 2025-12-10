@@ -10,7 +10,7 @@ const MedicalImageAnalyzer = ({ patient }) => {
   const [analysis, setAnalysis] = useState(null);
   const [error, setError] = useState(null);
 
-  const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY || 'AIzaSyDSTRJE5cwbmv6Jfe231ktNIpb9AvW12LI';
+  const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY || '';
   // Use Gemini 2.0 Flash - Latest and fastest free model!
   const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent';
   const imageTypes = [
